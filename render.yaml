@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: zonghan-capstone-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm ci --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_DB
+        value: capstone_portfolio
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false

@@ -1,0 +1,14 @@
+{
+  "name": "zonghan-fullstack-capstone",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack portfolio and blog capstone project.",
+  "scripts": {
+    "install:all": "npm --prefix server ci && npm --prefix client ci",
+    "check": "npm --prefix server run check && npm --prefix client run check",
+    "verify": "npm --prefix server run verify && npm --prefix client run verify",
+    "build": "npm --prefix client run build",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev"
+  }
+}
