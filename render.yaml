@@ -2,6 +2,7 @@ services:
   - type: web
     name: zonghan-capstone-api
     runtime: node
+    plan: free
     rootDir: server
     buildCommand: npm ci --no-audit --no-fund
     startCommand: npm start
