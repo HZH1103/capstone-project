@@ -15,12 +15,17 @@ through the live REST API.
 
 | Deployment | URL |
 | --- | --- |
-| Front-end (React SPA, Vercel) | _Filled in after deployment — see final submission note_ |
-| Back-end API (Express, Render) | _Filled in after deployment — see final submission note_ |
+| **Front-end SPA** (React, deployed on Netlify) | <https://hzh1103-capstone-web.netlify.app> |
+| **Back-end API** (Express, deployed on Netlify Functions) | <https://hzh1103-capstone-api.netlify.app> |
+| API health check | <https://hzh1103-capstone-api.netlify.app/api/health> |
 | Database | MongoDB Atlas (cloud-hosted M0 cluster) |
+| Source code | <https://github.com/HZH1103/capstone-project> |
 
 The front-end talks **exclusively** to the deployed back-end API; the API persists every record in
-MongoDB Atlas and is configured through `.env` variables only (no secrets in the repository).
+MongoDB Atlas and is configured through environment variables only (no secrets in the repository).
+The Express app is deployed as a single Netlify Function wrapping the same `server/` code that is
+submitted here (`deploy/netlify-api/` contains the deployment recipe); `render.yaml` is kept as an
+alternative Render blueprint.
 
 ### Demo administrator account
 
@@ -55,13 +60,14 @@ capstone-project/
 │   ├── scripts/seed.js         Idempotent production seed (admin + demo content)
 │   ├── scripts/verify.js       Full in-memory API verification
 │   └── server.js               App factory + startup (connects to MongoDB Atlas)
-├── render.yaml                 Render blueprint for the API service
+├── deploy/netlify-api/         Deployment recipe for the live API (Netlify Functions wrapper)
+├── render.yaml                 Alternative Render blueprint for the API service
 └── README.md                   This file
 ```
 
 ## API endpoints
 
-Base URL: `https://<backend-url>/api` (locally `http://localhost:5000/api`).
+Base URL: `https://hzh1103-capstone-api.netlify.app/api` (locally `http://localhost:5000/api`).
 All protected routes expect `Authorization: Bearer <token>` where the token comes from
 `POST /api/users/login`. Error responses are consistent JSON: `{ "success": false, "status": <code>, "message": "..." }`.
 
@@ -177,18 +183,19 @@ npm run admin:promote -- you@example.com
 Registration through the public form always creates a normal user; only the admin role can manage
 projects, while blog posts remain author-editable.
 
-## Deploying
+## How the live deployment is wired
 
-1. **Database** — create a free MongoDB Atlas M0 cluster, a database user with read/write access and
-   allow the hosting provider's egress IPs (or `0.0.0.0/0` for a course deployment).
-2. **Back-end** — deploy `server/` to Render as a Web Service (Node runtime):
-   build `npm ci`, start `npm start`, health check `/api/health`, environment variables
-   `MONGODB_URI`, `MONGODB_DB`, `JWT_SECRET`, `CLIENT_ORIGIN`, `NODE_ENV=production`.
-   `render.yaml` in the repository root encodes most of this.
-3. **Front-end** — deploy `client/` to Vercel with `VITE_API_URL=https://<render-api-url>/api`
-   (Vite bakes the value in at build time — rebuild after changing it), then add the Vercel origin to
-   the API's `CLIENT_ORIGIN`.
-4. Seed the production database once with `npm run seed` (from a machine that can reach Atlas).
+| Piece | Where | Configuration |
+| --- | --- | --- |
+| Front-end | Netlify static site `hzh1103-capstone-web` | `VITE_API_URL=https://hzh1103-capstone-api.netlify.app/api` (baked at build time); SPA fallback `/* /index.html 200` |
+| Back-end | Netlify Function `api` (site `hzh1103-capstone-api`) | `server/` sources packaged by `deploy/netlify-api/prepare.mjs`; `/api/*` rewritten to the function |
+| API env vars | Netlify site settings | `MONGODB_URI`, `MONGODB_DB=capstone_portfolio`, `JWT_SECRET`, `CLIENT_ORIGIN=https://hzh1103-capstone-web.netlify.app`, `NODE_ENV=production` |
+| Database | MongoDB Atlas M0 | database user with read/write access; IP access list allows Netlify/AWS egress |
+
+Alternative hosting: the repository also includes `render.yaml`; deploying `server/` to Render with
+`MONGODB_URI`, `JWT_SECRET` and `CLIENT_ORIGIN` set the same way produces an equivalent API (Render's
+current free tier requires payment-method verification, which is why the live API runs on Netlify
+Functions instead).
 
 ## Verification & quality
 
@@ -201,8 +208,8 @@ cd client && npm run build && npm run verify
 ```
 
 Both suites pass and are part of the submitted source. The API also ships with `helmet`,
-`express-rate-limit` (with correct `trust proxy` handling behind Render), bcrypt password hashing,
-JWT authorization, ownership checks for blog posts, and a central JSON error handler.
+`express-rate-limit` (with correct `trust proxy` handling behind a reverse proxy), bcrypt password
+hashing, JWT authorization, ownership checks for blog posts, and a central JSON error handler.
 
 ## Course requirements → implementation map
 

@@ -1,0 +1,22 @@
+{
+  "name": "hzh1103-capstone-api-function",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Netlify Function packaging for the Express capstone API (generated lib/ from ../../server).",
+  "main": "functions/api.js",
+  "scripts": {
+    "prepare:lib": "node prepare.mjs",
+    "deploy": "node prepare.mjs && npx netlify-cli deploy --prod --dir public --functions functions"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.2",
+    "serverless-http": "^3.2.0"
+  }
+}
