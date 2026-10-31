@@ -24,6 +24,17 @@ function createApp({
   const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
     .split(',').map((origin) => origin.trim()).filter(Boolean);
 
+  // Render (and virtually every cloud platform) terminates TLS in front of the
+  // process and forwards the visitor address in X-Forwarded-For. Express must be
+  // told how many proxy hops to trust so req.ip is the real client address;
+  // without this, every visitor shares the proxy's IP and therefore one
+  // rate-limit bucket, which lets one tester lock out login for everyone.
+  // TRUST_PROXY overrides the default of a single proxy hop when needed.
+  const trustProxy = process.env.TRUST_PROXY;
+  app.set('trust proxy', trustProxy
+    ? (Number.isNaN(Number(trustProxy)) ? trustProxy : Number(trustProxy))
+    : 1);
+
   app.disable('x-powered-by');
   app.use(helmet());
   app.use(cors({

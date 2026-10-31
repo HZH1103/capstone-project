@@ -22,7 +22,7 @@ function verifyProjectStructure() {
     'middleware/error.js', 'controllers/userController.js', 'controllers/projectController.js',
     'controllers/blogController.js', 'controllers/commentController.js', 'controllers/contactController.js',
     'routes/userRoutes.js', 'routes/projectRoutes.js', 'routes/blogRoutes.js',
-    'routes/contactRoutes.js', 'utils/generateToken.js', 'server.js'
+    'routes/contactRoutes.js', 'utils/generateToken.js', 'scripts/seed.js', 'server.js'
   ]) assert.ok(fs.existsSync(path.join(root, file)), `Missing server file: ${file}`);
 
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
@@ -30,6 +30,7 @@ function verifyProjectStructure() {
   for (const dependency of ['bcrypt', 'cors', 'dotenv', 'express', 'express-rate-limit', 'helmet', 'jsonwebtoken', 'mongoose']) {
     assert.ok(packageJson.dependencies[dependency], `Missing dependency: ${dependency}`);
   }
+  assert.equal(packageJson.scripts.seed, 'node scripts/seed.js', 'npm run seed must launch the production seed script.');
   assert.equal(packageLock.name, packageJson.name);
   assert.equal(packageLock.packages[''].name, packageJson.name);
   assert.deepEqual(packageLock.packages[''].dependencies, packageJson.dependencies);
@@ -290,6 +291,18 @@ async function verifyApi() {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ email: 'hz@example.com', password: 'incorrect' })
       }), 401);
+
+      // The API is deployed behind a single reverse proxy (Render) that forwards
+      // the visitor address in X-Forwarded-For. Express must trust that hop:
+      // without it, req.ip is the proxy's address, every visitor shares one
+      // rate-limit bucket, and one tester can lock login out for everyone.
+      assert.notEqual(app.get('trust proxy'), false, 'Reverse-proxy deployments require a trust proxy setting.');
+      const proxiedLogin = await fetch(`${base}/api/users/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.7' },
+        body: JSON.stringify({ email: 'hz@example.com', password: 'incorrect' })
+      });
+      assert.equal(proxiedLogin.status, 401, 'Rate-limited auth routes must identify proxied visitors.');
 
       const me = await fetch(`${base}/api/users/me`, { headers: { authorization: `Bearer ${login.token}` } });
       assert.equal(me.status, 200);

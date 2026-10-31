@@ -9,10 +9,12 @@ function createUserRouter({ userModel, tokenGenerator } = {}) {
   const protect = createProtect({ userModel });
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 15,
+    // Generous enough for a person testing the deployed demo, tight enough to
+    // make credential stuffing impractical.
+    limit: 30,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    message: { success: false, message: 'Too many authentication attempts. Please try again later.' }
+    message: { success: false, status: 429, message: 'Too many authentication attempts. Please try again later.' }
   });
 
   router.post('/register', authLimiter, controller.registerUser);

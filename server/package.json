@@ -9,6 +9,7 @@
     "dev": "node --watch server.js",
     "check": "node scripts/check.js",
     "verify": "node scripts/verify.js",
+    "seed": "node scripts/seed.js",
     "admin:promote": "node scripts/promote-admin.js"
   },
   "dependencies": {

@@ -1,26 +1,74 @@
-# Lab 13: Fetching Live GitHub Projects with React
+# Portfolio & Journal — React Client
 
-A responsive React portfolio that replaces hardcoded project data with public repositories fetched from the GitHub REST API.
+The React single-page application for the Full-Stack Portfolio & Blog capstone project
+(Web Data Management and Application). It is the client for the Express + MongoDB API in
+`../server` and is deployed independently (for example on Vercel).
 
-## Features
+## Pages and routes
 
-- `Projects` uses `useState` for repository, loading, and error state.
-- A `useEffect` fetches the selected GitHub user's repositories once when the component mounts.
-- Loading, error, empty, and successful results have separate accessible messages.
-- Repository name, description, and `html_url` are mapped to reusable `ProjectCard` props.
-- The browser tab title updates when the number of repositories changes.
-- The existing responsive portfolio layout and dark-mode control are retained.
-- The default account is `octocat`, as shown in the assignment. Use your own account by setting `VITE_GITHUB_USERNAME` in a local `.env` file.
+| Route | Page | Data |
+| --- | --- | --- |
+| `/` | Home / About | `GET /api/projects` for featured projects |
+| `/projects` | Projects gallery | `GET /api/projects` |
+| `/blog` | Journal list | `GET /api/blog` |
+| `/blog/:id` | Journal entry + comments | `GET /api/blog/:id`, `POST /api/blog/:id/comments` |
+| `/contact` | Contact form | `POST /api/contact` |
+| `/login` | Log in | `POST /api/users/login` |
+| `/register` | Create account | `POST /api/users/register` |
+| `/admin` | Admin dashboard (protected) | Project and blog CRUD with the JWT |
+| `*` | Not found | — |
+
+`/admin` requires a logged-in administrator. Logged-out visitors are redirected to `/login` and
+returned to the dashboard after signing in. Non-admin accounts see a short explanation instead of
+the dashboard.
+
+## Architecture
+
+- **React 19 + Vite** with `BrowserRouter` and the routes above.
+- **AuthContext** (Context API + `localStorage`) stores the JWT and user, refreshes the session
+  against `GET /api/users/me`, and exposes `login`, `register`, and `logout`.
+- **`services/api.js`** is the only place that talks to the API. It prefixes `API_BASE_URL`, sends
+  JSON bodies, and attaches `Authorization: Bearer <token>` for protected requests.
+- **Reusable components**: `Header` (auth-aware), `Footer`, `ProjectCard`, `BlogPostCard`,
+  `PageHeading`, `LoadState` (loading/error/empty/retry), `ProtectedRoute`, `RouteEffects`.
+- **Admin dashboard**: `ProjectManager` (create/update/delete projects) and `BlogManager`
+  (create/update/delete blog posts; only the original author can edit or delete an entry, which
+  mirrors the API authorization rules).
+- All data comes from the API — nothing on the Projects or Journal pages is hardcoded.
+
+## API base URL
+
+`VITE_API_URL` is the single API configuration value. It defaults to
+`http://localhost:5000/api` when unset.
+
+```bash
+# .env (local only — never commit a real .env)
+VITE_API_URL=http://localhost:5000/api
+```
+
+For the deployed front end, set `VITE_API_URL` in the Vercel project to the public API URL with
+the `/api` suffix, for example `https://your-api.onrender.com/api`. Rebuild after changing it.
 
 ## Run locally
 
-1. Install dependencies with `npm ci`.
-2. Optionally copy `.env.example` to `.env` and change the username.
-3. Start the app with `npm run dev` and open the local URL printed by Vite.
+1. Start the API (see `../server`), configured with its own `.env`.
+2. Install dependencies: `npm ci`
+3. Optional: copy `.env.example` to `.env` and point `VITE_API_URL` at the API.
+4. `npm run dev` and open the printed local URL.
 
-No GitHub token or other secret is needed for public repositories. Do not commit a real `.env` file.
+## Scripts
 
-## Verify
+- `npm run dev` — Vite development server.
+- `npm run build` — production build into `dist/`.
+- `npm run preview` — preview the production build.
+- `npm run verify` — static verification of the required files, routes, API calls, and auth
+  contract (`node scripts/verify.mjs`).
 
-- `npm run check` checks the API helper syntax and creates a production build.
-- `npm run verify` checks loading UI, repository mapping, card links, API success/error handling, and the optional title update.
+## Deployment notes
+
+- `vercel.json` rewrites every path to `index.html` so client-side routes work on refresh.
+- Set `VITE_API_URL` before building; the value is baked into the bundle at build time.
+- The API only accepts requests from origins listed in its `CLIENT_ORIGIN` variable, so add the
+  deployed front-end URL there as well.
+- The first registered account is a normal user. Promote an account to administrator from the
+  server folder with `npm run admin:promote` so it can use `/admin`.

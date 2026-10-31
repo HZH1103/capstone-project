@@ -1,137 +1,221 @@
-# 何宗翰 — Full-Stack Portfolio & Blog
+# 何宗翰 — Full-Stack Portfolio & Blog Application
 
-A responsive React portfolio connected to an Express and Mongoose API. Visitors can browse projects and journal entries, send a contact message, create an account, and comment while signed in. An administrator can manage projects and blog posts from the protected dashboard.
+Capstone project for **Web Data Management and Application**.
+
+- **Student:** 何宗翰 (Zonghan He) — Student ID: **24998116**
+- **Project type:** Cumulative Full-Stack Capstone Project (100 marks)
+- **Repository:** <https://github.com/HZH1103/capstone-project>
+
+A production-style personal portfolio and blog. Visitors can browse the project gallery, read the blog,
+send a contact message, register an account and comment on posts while signed in. Signed-in
+administrators get a dashboard that manages portfolio projects and blog posts (create, update, delete)
+through the live REST API.
 
 ## Live URLs
 
-- Front end: not deployed yet; add the public Vercel or Netlify URL after deployment.
-- Back end: not deployed yet; add the public Render URL after deployment. The API health route is `/api/health`.
+| Deployment | URL |
+| --- | --- |
+| Front-end (React SPA, Vercel) | _Filled in after deployment — see final submission note_ |
+| Back-end API (Express, Render) | _Filled in after deployment — see final submission note_ |
+| Database | MongoDB Atlas (cloud-hosted M0 cluster) |
 
-The repository includes Render and Vercel deployment configuration. A MongoDB Atlas URI, JWT secret, and authenticated hosting accounts are required before either live URL can be created. No production credentials are included in this archive.
+The front-end talks **exclusively** to the deployed back-end API; the API persists every record in
+MongoDB Atlas and is configured through `.env` variables only (no secrets in the repository).
+
+### Demo administrator account
+
+The database is seeded with an administrator account so the dashboard can be reviewed immediately:
+
+| Field | Value |
+| --- | --- |
+| Email | `admin@zonghan.dev` |
+| Password | `Capstone@2026` |
+| Username | `zonghan` |
+
+> The password is documented deliberately for grading/demo purposes. Change it in a real deployment.
 
 ## Project structure
 
 ```text
-client/   React SPA, Vite build, React Router pages
-server/   Express REST API, MVC controllers, Mongoose models
-render.yaml
+capstone-project/
+├── client/                     React SPA (Vite, React Router, Context API)
+│   ├── src/pages/              Home, Projects, Blog, BlogDetail, Contact, Login, Register, Admin, NotFound
+│   ├── src/pages/admin/        ProjectManager + BlogManager (protected CRUD)
+│   ├── src/components/         Header, Footer, cards, LoadState, ProtectedRoute, ...
+│   ├── src/auth/AuthContext.jsx   Global authentication state (Context API + localStorage)
+│   ├── src/services/api.js        Fetch wrapper that attaches `Authorization: Bearer <JWT>`
+│   ├── vercel.json             SPA rewrites for client-side routing
+│   └── scripts/verify.mjs      Static client verification
+├── server/                     Express REST API (MVC)
+│   ├── models/                 Mongoose schemas: User, Project, BlogPost, Comment, Message
+│   ├── controllers/            Business logic for users, projects, blog, comments, contact
+│   ├── routes/                 Express routers (+ rate limiting)
+│   ├── middleware/             `protect` JWT middleware, central error handler
+│   ├── utils/                  JWT helper, error class
+│   ├── scripts/seed.js         Idempotent production seed (admin + demo content)
+│   ├── scripts/verify.js       Full in-memory API verification
+│   └── server.js               App factory + startup (connects to MongoDB Atlas)
+├── render.yaml                 Render blueprint for the API service
+└── README.md                   This file
 ```
-
-## Run locally
-
-Requirements: Node.js 20 or newer, npm, and a MongoDB Atlas database (or a local MongoDB instance).
-
-1. Install dependencies:
-
-   ```sh
-   cd server && npm ci
-   cd ../client && npm ci
-   ```
-
-2. Copy `server/.env.example` to `server/.env` and set `MONGODB_URI` to your own database connection string. Set `JWT_SECRET` to a private random value of at least 32 characters. Do not commit or share the `.env` file.
-
-3. Copy `client/.env.example` to `client/.env.local`. Set `VITE_API_URL=http://localhost:5000/api` for local development.
-
-4. Start the API in one terminal:
-
-   ```sh
-   cd server && npm run dev
-   ```
-
-5. Start the web client in another terminal:
-
-   ```sh
-   cd client && npm run dev
-   ```
-
-   Open the local URL printed by Vite (normally `http://localhost:5173`). The API health endpoint is `http://localhost:5000/api/health`.
-
-### Set up the administrator account
-
-1. Register an account from the site’s **Join the journal** link.
-2. In the `server` folder, promote that registered email using the local database connection:
-
-   ```sh
-   npm run admin:promote -- your-registered-email@example.com
-   ```
-
-3. Log out and back in. The account’s administrator role is included in the new login session. Public registration cannot assign the admin role.
-
-Add projects and blog posts from `/admin`. This account and its data are stored in your configured database; no seeded passwords or private records are bundled.
-
-## Environment variables
-
-### API (`server/.env`)
-
-| Variable | Purpose |
-| --- | --- |
-| `MONGODB_URI` | Private MongoDB Atlas URI |
-| `MONGODB_DB` | Database name (defaults to `capstone_portfolio`) |
-| `PORT` | API port (defaults to `5000`) |
-| `JWT_SECRET` | Private signing secret, at least 32 characters |
-| `CLIENT_ORIGIN` | Allowed web origin; comma-separate multiple origins |
-| `NODE_ENV` | Set to `production` when deployed |
-
-### Web client (`client/.env.local`)
-
-| Variable | Purpose |
-| --- | --- |
-| `VITE_API_URL` | API base URL ending in `/api` |
 
 ## API endpoints
 
-All request and response bodies use JSON. Protected routes require `Authorization: Bearer <token>`. IDs are MongoDB document IDs.
+Base URL: `https://<backend-url>/api` (locally `http://localhost:5000/api`).
+All protected routes expect `Authorization: Bearer <token>` where the token comes from
+`POST /api/users/login`. Error responses are consistent JSON: `{ "success": false, "status": <code>, "message": "..." }`.
 
-| Method | Endpoint | Access | Purpose and expected input |
-| --- | --- | --- | --- |
-| `GET` | `/api/health` | Public | API and database readiness |
-| `POST` | `/api/users/register` | Public | Register with `{ "username", "email", "password" }` |
-| `POST` | `/api/users/login` | Public | Sign in with `{ "email", "password" }`; returns user and JWT |
-| `GET` | `/api/users/me` | Signed in | Return the current account |
-| `GET` | `/api/projects` | Public | List projects with their author username |
-| `GET` | `/api/projects/:id` | Public | Read one project |
-| `POST` | `/api/projects` | Admin | Create using `{ "title", "description", "imageUrl?", "repoUrl?", "liveUrl?" }` |
-| `PUT` | `/api/projects/:id` | Admin | Update any supplied project fields |
-| `DELETE` | `/api/projects/:id` | Admin | Delete a project |
-| `POST` | `/api/contact` | Public | Save `{ "name", "email", "message" }` as a contact message |
-| `GET` | `/api/blog` | Public | List posts with author usernames |
-| `GET` | `/api/blog/:id` | Public | Read a post with author and comments |
-| `POST` | `/api/blog` | Signed in | Create `{ "title", "content" }`; the signed-in user becomes author |
-| `PUT` | `/api/blog/:id` | Original author | Update supplied `{ "title?", "content?" }` fields |
-| `DELETE` | `/api/blog/:id` | Original author | Delete the author’s post |
-| `GET` | `/api/blog/:postId/comments` | Public | List comments with author usernames |
-| `POST` | `/api/blog/:postId/comments` | Signed in | Create a comment using `{ "body" }` |
+### Users / authentication
 
-## Data models
+| Method | Endpoint | Access | Purpose | Body |
+| --- | --- | --- | --- | --- |
+| POST | `/api/users/register` | Public | Create an account (bcrypt-hashed password) | `{ "username", "email", "password" }` |
+| POST | `/api/users/login` | Public | Authenticate and receive a JWT | `{ "email", "password" }` |
+| GET | `/api/users/me` | Protected | Current user (used by the client to revalidate sessions) | — |
 
-- **User:** unique username and email, bcrypt-hashed password excluded from normal queries, and `user`/`admin` role.
-- **Project:** title, description, optional image/repository/live URLs, owner reference, and timestamps.
-- **BlogPost:** title, content, author reference, timestamps, and a virtual relationship to comments.
-- **Comment:** body, author reference, post reference, and timestamps.
-- **Message:** name, email, message, and timestamps.
+### Projects (portfolio)
 
-## Validation and checks
+| Method | Endpoint | Access | Purpose | Body |
+| --- | --- | --- | --- | --- |
+| GET | `/api/projects` | Public | List all projects (newest first) | — |
+| GET | `/api/projects/:id` | Public | Get one project | — |
+| POST | `/api/projects` | Protected | Create a project linked to `req.user` | `{ "title", "description", "imageUrl?", "repoUrl?", "liveUrl?" }` |
+| PUT | `/api/projects/:id` | Protected | Update a project | any of the project fields |
+| DELETE | `/api/projects/:id` | Protected | Delete a project | — |
 
-Run these from the corresponding folder:
+### Blog posts
+
+| Method | Endpoint | Access | Purpose | Body |
+| --- | --- | --- | --- | --- |
+| GET | `/api/blog` | Public | List posts, `author` populated with `username` | — |
+| GET | `/api/blog/:id` | Public | One post, `author` populated and all `comments` included | — |
+| POST | `/api/blog` | Protected | Create a post authored by the logged-in user | `{ "title", "content" }` |
+| PUT | `/api/blog/:id` | Protected + author only | Update a post (other users receive `403`) | any of `{ "title", "content" }` |
+| DELETE | `/api/blog/:id` | Protected + author only | Delete a post and its comments | — |
+
+### Comments (on blog posts)
+
+| Method | Endpoint | Access | Purpose | Body |
+| --- | --- | --- | --- | --- |
+| GET | `/api/blog/:postId/comments` | Public | List comments for a post, author populated | — |
+| POST | `/api/blog/:postId/comments` | Protected | Comment as the logged-in user | `{ "body" }` |
+
+### Contact & health
+
+| Method | Endpoint | Access | Purpose | Body |
+| --- | --- | --- | --- | --- |
+| POST | `/api/contact` | Public | Store a contact-form message in MongoDB | `{ "name", "email", "message" }` |
+| GET | `/api/health` | Public | Liveness + database connection status | — |
+
+## Run the project locally
+
+Requirements: **Node.js 20+**, npm, and a MongoDB database (MongoDB Atlas recommended — a local
+MongoDB instance also works).
+
+### 1. Install dependencies
 
 ```sh
-# API
-npm run check
-npm run verify
-
-# Web client
-npm run check
-npm run verify
+cd server && npm ci
+cd ../client && npm ci
 ```
 
-`verify` exercises the API with in-memory model adapters and checks validation, auth, authorization, CRUD routes, error responses, and relationships without a live database. It does not need Atlas credentials.
+### 2. Configure the API (`server/.env`)
 
-## Deployment
+Copy `server/.env.example` to `server/.env` and fill in the values (never commit the real file):
 
-- **API:** use the included `render.yaml` blueprint. Configure `MONGODB_URI`, a private `JWT_SECRET`, and `CLIENT_ORIGIN` in the hosting dashboard. After deployment, check `<API_URL>/api/health`.
-- **Web client:** deploy the `client` directory to Vercel or Netlify. Set `VITE_API_URL` to `<API_URL>/api` before building. The Vercel rewrite keeps React Router deep links working.
-- After both sites are live, replace the two entries in **Live URLs** with their public addresses.
+```ini
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/capstone_portfolio?retryWrites=true&w=majority
+MONGODB_DB=capstone_portfolio
+PORT=5000
+JWT_SECRET=<at-least-32-random-characters>
+CLIENT_ORIGIN=http://localhost:5173
+NODE_ENV=development
+```
 
-## Chaoxing submission
+`JWT_SECRET` is mandatory: the server refuses to start without a secret of at least 32 characters.
+`CLIENT_ORIGIN` is a comma-separated allow-list for CORS.
 
-Create one archive named `24998116_何宗翰_CapstoneProject.zip` containing `client/`, `server/`, and this README. Exclude every `node_modules` folder and every real `.env` file. Include `client/package.json`, `client/package-lock.json`, `server/package.json`, and `server/package-lock.json`.
+### 3. Configure the client (`client/.env.local`)
+
+```ini
+VITE_API_URL=http://localhost:5000/api
+```
+
+`VITE_API_URL` is read at build time and is the single place the SPA points at the API — this is how
+front-end and back-end are connected locally and in deployment.
+
+### 4. (Optional) Seed demo content + the admin account
+
+```sh
+cd server
+npm run seed            # uses MONGODB_URI from server/.env
+npm run seed -- --dry-run
+```
+
+The seed is idempotent (safe to run repeatedly). It creates the documented administrator account and
+demo projects, blog posts and a sample comment.
+
+### 5. Run both halves
+
+```sh
+# terminal 1 — API on http://localhost:5000
+cd server && npm run dev
+
+# terminal 2 — SPA on http://localhost:5173
+cd client && npm run dev
+```
+
+Sign in at `http://localhost:5173/login`, the admin dashboard is at `/admin`.
+
+### Promote an account to admin (alternative to the seed admin)
+
+```sh
+cd server
+npm run admin:promote -- you@example.com
+```
+
+Registration through the public form always creates a normal user; only the admin role can manage
+projects, while blog posts remain author-editable.
+
+## Deploying
+
+1. **Database** — create a free MongoDB Atlas M0 cluster, a database user with read/write access and
+   allow the hosting provider's egress IPs (or `0.0.0.0/0` for a course deployment).
+2. **Back-end** — deploy `server/` to Render as a Web Service (Node runtime):
+   build `npm ci`, start `npm start`, health check `/api/health`, environment variables
+   `MONGODB_URI`, `MONGODB_DB`, `JWT_SECRET`, `CLIENT_ORIGIN`, `NODE_ENV=production`.
+   `render.yaml` in the repository root encodes most of this.
+3. **Front-end** — deploy `client/` to Vercel with `VITE_API_URL=https://<render-api-url>/api`
+   (Vite bakes the value in at build time — rebuild after changing it), then add the Vercel origin to
+   the API's `CLIENT_ORIGIN`.
+4. Seed the production database once with `npm run seed` (from a machine that can reach Atlas).
+
+## Verification & quality
+
+```sh
+# API: syntax + full in-memory integration test suite (23 endpoint/security checks)
+cd server && npm run check && npm run verify
+
+# SPA: production build + route/contract static verification
+cd client && npm run build && npm run verify
+```
+
+Both suites pass and are part of the submitted source. The API also ships with `helmet`,
+`express-rate-limit` (with correct `trust proxy` handling behind Render), bcrypt password hashing,
+JWT authorization, ownership checks for blog posts, and a central JSON error handler.
+
+## Course requirements → implementation map
+
+| Requirement | Where |
+| --- | --- |
+| MVC back end + Mongoose models with validation | `server/models`, `server/controllers`, `server/routes` |
+| MongoDB Atlas + Mongoose connection | `server/config/db.js`, `MONGODB_URI` env var |
+| bcrypt hashing + JWT auth + `protect` middleware | `server/models/UserModel.js`, `server/utils/generateToken.js`, `server/middleware/auth.js` |
+| Blog author-only update/delete | `server/controllers/blogController.js` (`403` for other users) |
+| Comments, contact messages, `populate()` | `server/controllers/commentController.js`, `server/controllers/contactController.js`, `server/controllers/blogController.js` |
+| Central error handling + security headers | `server/middleware/error.js`, `helmet`, `dotenv`, `express-rate-limit` |
+| Reusable React components + responsive styling | `client/src/components`, `client/src/index.css` |
+| React Router with public + protected routes | `client/src/App.jsx`, `client/src/components/ProtectedRoute.jsx` |
+| Context API auth state + auth-aware header | `client/src/auth/AuthContext.jsx`, `client/src/components/Header.jsx` |
+| Admin dashboard CRUD with JWT | `client/src/pages/admin/ProjectManager.jsx`, `client/src/pages/admin/BlogManager.jsx` |
+| Loading/error states everywhere | `client/src/components/LoadState.jsx` and pages |

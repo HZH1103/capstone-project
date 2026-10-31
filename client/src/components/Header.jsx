@@ -23,13 +23,13 @@ export default function Header() {
         <div className="header-actions">
           {isAuthenticated ? (
             <>
-              <Link className="nav-link admin-shortcut" to="/admin">Admin</Link>
+              <Link className="nav-link admin-shortcut" to="/admin">Admin dashboard</Link>
               <button className="button button-small button-quiet" type="button" onClick={logout}>Log out</button>
             </>
           ) : (
             <>
               <Link className="nav-link login-shortcut" to="/login">Log in</Link>
-              <Link className="button button-small" to="/register">Join the journal <span aria-hidden="true">↗</span></Link>
+              <Link className="button button-small" to="/register">Register <span aria-hidden="true">↗</span></Link>
             </>
           )}
         </div>

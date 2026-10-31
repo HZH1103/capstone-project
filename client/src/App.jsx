@@ -3,6 +3,7 @@ import { AuthProvider } from './auth/AuthContext.jsx';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import RouteEffects from './components/RouteEffects.jsx';
 import HomePage from './pages/HomePage.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
 import BlogPage from './pages/BlogPage.jsx';
@@ -16,6 +17,7 @@ import NotFoundPage from './pages/NotFoundPage.jsx';
 function AppShell() {
   return (
     <>
+      <RouteEffects />
       <a className="skip-link" href="#main-content">Skip to content</a>
       <Header />
       <main id="main-content" className="page-main">

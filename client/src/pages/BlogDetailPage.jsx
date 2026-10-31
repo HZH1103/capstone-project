@@ -11,7 +11,7 @@ export default function BlogDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [body, setBody] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const loadPost = useCallback(async () => {
@@ -29,21 +29,33 @@ export default function BlogDetailPage() {
 
   useEffect(() => { loadPost(); }, [loadPost]);
 
+  useEffect(() => {
+    if (post?.title) document.title = `${post.title} — 何宗翰`;
+  }, [post?.title]);
+
   async function handleComment(event) {
     event.preventDefault();
+    const trimmed = body.trim();
+    if (!trimmed) {
+      setNotice({ type: 'error', text: 'Please write a comment before posting.' });
+      return;
+    }
     setSubmitting(true);
-    setNotice('');
+    setNotice(null);
     try {
-      await apiRequest(`/blog/${encodeURIComponent(id)}/comments`, {
+      const result = await apiRequest(`/blog/${encodeURIComponent(id)}/comments`, {
         method: 'POST',
         token,
-        body: JSON.stringify({ body })
+        body: JSON.stringify({ body: trimmed })
       });
       setBody('');
-      setNotice('Your comment has been posted.');
-      await loadPost();
+      setPost((current) => current ? {
+        ...current,
+        comments: [...(current.comments || []), result.comment]
+      } : current);
+      setNotice({ type: 'success', text: 'Your comment has been posted.' });
     } catch (requestError) {
-      setNotice(requestError.message);
+      setNotice({ type: 'error', text: requestError.message });
     } finally {
       setSubmitting(false);
     }
@@ -51,7 +63,7 @@ export default function BlogDetailPage() {
 
   return (
     <section className="content-page article-page">
-      <LoadState loading={loading} error={error}>
+      <LoadState loading={loading} error={error} onRetry={loadPost}>
         {post && (
           <article>
             <Link className="back-link" to="/blog">← Back to journal</Link>
@@ -76,10 +88,14 @@ export default function BlogDetailPage() {
                 </ol>
               ) : <p className="muted-copy">No comments yet. Start the conversation.</p>}
               {isAuthenticated ? (
-                <form className="form-panel comment-form" onSubmit={handleComment}>
+                <form className="form-panel comment-form" onSubmit={handleComment} aria-busy={submitting}>
                   <label htmlFor="comment-body">Add a comment</label>
                   <textarea id="comment-body" value={body} onChange={(event) => setBody(event.target.value)} required maxLength={2000} rows={4} />
-                  {notice && <p className="form-notice" role="status">{notice}</p>}
+                  {notice && (
+                    <p className={`form-notice ${notice.type === 'error' ? 'form-notice-error' : ''}`} role={notice.type === 'error' ? 'alert' : 'status'}>
+                      {notice.text}
+                    </p>
+                  )}
                   <button className="button" disabled={submitting}>{submitting ? 'Posting…' : 'Post comment'} <span aria-hidden="true">↗</span></button>
                 </form>
               ) : <p className="muted-copy"><Link to="/login">Log in</Link> to leave a comment.</p>}

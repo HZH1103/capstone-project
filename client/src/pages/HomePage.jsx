@@ -1,30 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import LoadState from '../components/LoadState.jsx';
 import ProjectCard from '../components/ProjectCard.jsx';
 import { apiRequest } from '../services/api.js';
+import { GITHUB_PROFILE_URL } from '../config.js';
+
+const SKILLS = [
+  'JavaScript',
+  'React',
+  'Node.js',
+  'Express',
+  'MongoDB',
+  'Mongoose',
+  'REST APIs',
+  'HTML & CSS',
+  'Git & GitHub'
+];
 
 export default function HomePage() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    apiRequest('/projects')
-      .then((result) => { if (active) setProjects(result.projects || []); })
-      .catch((requestError) => { if (active) setError(requestError.message); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+  const loadProjects = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await apiRequest('/projects');
+      setProjects(result.projects || []);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
 
   return (
     <>
       <section className="home-hero">
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Web developer / student portfolio</p>
+          <p className="eyebrow"><span className="live-dot" /> Full-stack developer / student portfolio</p>
           <h1>Ideas made <em>useful.</em></h1>
-          <p className="hero-description">I’m 何宗翰 — learning to build thoughtful digital experiences, from the first line of data to the final interaction.</p>
+          <p className="hero-description">
+            I’m 何宗翰, a full-stack web development student. I build complete products — React
+            interfaces, Express APIs, and MongoDB data models — with a focus on clarity,
+            accessibility, and the small details people actually feel.
+          </p>
           <div className="hero-actions">
             <Link className="button" to="/projects">Explore the work <span aria-hidden="true">↗</span></Link>
             <Link className="text-link" to="/contact">Start a conversation <span aria-hidden="true">→</span></Link>
@@ -39,11 +62,47 @@ export default function HomePage() {
       </section>
 
       <section className="home-about section-block" aria-labelledby="intro-title">
-        <div className="section-label"><span className="section-index">01</span><span>A little introduction</span></div>
+        <div className="home-about-aside">
+          <div className="section-label"><span className="section-index">01</span><span>About me</span></div>
+          <figure className="portrait-card">
+            <img
+              className="portrait-image"
+              src="/assets/profile-portrait.jpg"
+              alt="Portrait of 何宗翰"
+              width="900"
+              height="900"
+              loading="lazy"
+            />
+            <figcaption className="portrait-caption">
+              <span className="portrait-name">何宗翰</span>
+              <span className="portrait-meta">Full-stack student</span>
+            </figcaption>
+          </figure>
+        </div>
         <div className="home-about-copy">
-          <h2 id="intro-title">A web programming student building at the intersection of <em>design and data.</em></h2>
-          <p>This portfolio is a working project: a place to share selected builds, publish notes from the process, and connect through a small full-stack application.</p>
-          <Link className="text-link" to="/blog">Read the journal <span aria-hidden="true">↗</span></Link>
+          <h2 id="intro-title">A full-stack student building at the intersection of <em>design and data.</em></h2>
+          <p>
+            I study web data management and application development, and I like taking an idea the
+            whole way: modelling the data in MongoDB, writing the Node.js and Express API that serves
+            it, and designing the React interface that makes it feel simple.
+          </p>
+          <p>
+            This site is the coursework made real — a React single-page application talking to a
+            separate Express API. Every project and journal entry you see here was created through
+            the protected admin dashboard, not hardcoded into the client.
+          </p>
+          <div className="skill-block">
+            <p className="eyebrow">Working toolkit</p>
+            <ul className="skill-list">
+              {SKILLS.map((skill) => <li key={skill} className="skill-chip">{skill}</li>)}
+            </ul>
+          </div>
+          <div className="about-actions">
+            <a className="text-link" href={GITHUB_PROFILE_URL} target="_blank" rel="noreferrer">
+              github.com/HZH1103 <span aria-hidden="true">↗</span>
+            </a>
+            <Link className="text-link" to="/blog">Read the journal <span aria-hidden="true">↗</span></Link>
+          </div>
         </div>
       </section>
 
@@ -55,7 +114,13 @@ export default function HomePage() {
           </div>
           <Link className="text-link" to="/projects">All projects <span aria-hidden="true">↗</span></Link>
         </div>
-        <LoadState loading={loading} error={error} empty="Projects will appear here once the portfolio database has been seeded from the Admin Dashboard.">
+        <LoadState
+          loading={loading}
+          error={error}
+          onRetry={loadProjects}
+          isEmpty={projects.length === 0}
+          empty="Projects will appear here once the portfolio database has been seeded from the Admin Dashboard."
+        >
           <div className="project-grid">
             {projects.slice(0, 2).map((project, index) => (
               <ProjectCard key={project._id} project={project} number={String(index + 1).padStart(2, '0')} />
