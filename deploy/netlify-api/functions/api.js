@@ -6,7 +6,11 @@
  *
  * Netlify rewrites /api/* to /.netlify/functions/api/* before invoking this
  * handler, so the request path is normalised back to /api/* for Express.
- * The Express app and its Mongoose connection are reused across warm invocations.
+ *
+ * The Express app is reused across warm invocations. MongoDB Atlas closes idle
+ * connections, so before serving each invocation we make sure Mongoose is
+ * connected again; otherwise the API's database-ready guard would answer 503
+ * until the platform happened to recycle the instance.
  */
 
 const serverless = require('serverless-http');
@@ -14,20 +18,29 @@ const serverless = require('serverless-http');
 const LIB_PREFIX = '/.netlify/functions/api';
 let handlerPromise = null;
 
-async function createHandler() {
+async function ensureConnected() {
+  const mongoose = require('mongoose');
+  if (mongoose.connection.readyState === 1) return;
+
   const { connectDB } = require('../lib/config/db');
-  const { createApp } = require('../lib/server');
+  if (mongoose.connection.readyState === 2) {
+    // A connection attempt is already in flight - wait for it, then retry once.
+    try {
+      await mongoose.connection.asPromise();
+    } catch (error) {
+      // fall through to a fresh connectDB() attempt below
+    }
+    if (mongoose.connection.readyState === 1) return;
+  }
   await connectDB();
-  const app = createApp();
-  return serverless(app);
 }
 
-function getHandler() {
+async function getHandler() {
+  await ensureConnected();
   if (!handlerPromise) {
-    handlerPromise = createHandler().catch((error) => {
-      handlerPromise = null; // allow the next invocation to retry a cold connection
-      throw error;
-    });
+    const { createApp } = require('../lib/server');
+    const app = createApp();
+    handlerPromise = Promise.resolve(serverless(app));
   }
   return handlerPromise;
 }
@@ -43,13 +56,15 @@ exports.handler = async (event, context) => {
     }
     return await handler(normalized, context);
   } catch (error) {
+    // Drop the cached handler so the next invocation starts from a clean state.
+    handlerPromise = null;
     return {
-      statusCode: 500,
+      statusCode: 503,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: false,
-        status: 500,
-        message: 'The API could not start: ' + (error && error.message ? error.message : 'unknown error')
+        status: 503,
+        message: 'The API is temporarily unavailable: ' + (error && error.message ? error.message : 'unknown error')
       })
     };
   }
